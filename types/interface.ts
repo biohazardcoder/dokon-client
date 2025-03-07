@@ -11,6 +11,7 @@ export interface Product{
         productId :string,
         date : string,
         product: string,
+        paid: number,
         price: number , 
         size: string,
         stock: number

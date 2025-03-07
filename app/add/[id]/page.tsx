@@ -17,11 +17,12 @@ import {
   } from "@/components/ui/table"
 import { useDispatch, useSelector } from 'react-redux'
 import { Button } from '@/components/ui/button'
-import { LoaderCircle, PackagePlus, PlusCircle, ShieldAlert, TableOfContents, Trash } from 'lucide-react'
+import { LoaderCircle, PackagePlus, PlusCircle, RefreshCcw, ShieldAlert, TableOfContents, Trash } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { getError, getPending, getUserInfo } from '@/toolkits/user-toolkit'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { Label } from '@/components/ui/label'
 
 const page = () => {
     const {id}=useParams()
@@ -33,11 +34,10 @@ const page = () => {
     const [openDialog, setOpenDialog] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [quantity, setQuantity] = useState<number>(0);
+    const [paid, setPaid] = useState<number>(0);
     const dispatch = useDispatch();
     const [deleteProductId, setDeleteProductId] = useState<string | null>(null)
     const { data,isError,isAuth } = useSelector((state: any) => state.user) || {};
-
-    
       
   useEffect(() => {
     if (!isAuth) {
@@ -95,6 +95,7 @@ const page = () => {
                 product: selectedProduct.product,
                 price: selectedProduct.price,
                 size: selectedProduct.size,
+                paid:paid,
                 _id: selectedProduct._id,
                 admin: data._id,
                 quantity,
@@ -105,6 +106,7 @@ const page = () => {
             GetUserData();
         } catch (error : any) {
             setError(error.message);
+            console.log(error);
         }finally{
             setLoading(false)
         }
@@ -147,7 +149,9 @@ const page = () => {
         {isError ?  <h1 className="text-red-500 text-center">
           {isError.message}
         </h1> : ""}
-            {error ? <h1 className='text-muted-foreground p-2 flex items-center justify-center gap-1'><ShieldAlert size={20}/> Xatolik: <span className='text-red-500'>{error}</span></h1> : ""}
+            {error ? <h1 className='text-muted-foreground p-2 flex items-center justify-center gap-1'><ShieldAlert size={20}/> Xatolik: <span className='text-red-500'>{error}</span> 
+            <Button onClick={()=> router.push("/user")}><RefreshCcw/></Button> 
+            </h1> : ""}
             {menu ? (
                 <div className='p-2'>
                  {
@@ -180,7 +184,10 @@ const page = () => {
                                     {partner?.products.map((product: Product) => (
                                         <TableRow key={product._id}>
                                             <TableCell className="font-medium">{product.product}</TableCell>
-                                            <TableCell>{product.price}</TableCell>
+                                            <TableCell className='flex flex-col'>
+                                            <span>{(product?.price,product.quantity ? product?.price * product?.quantity : 0).toLocaleString()}</span>
+                                            <span className='text-red-500'>-{((product?.price,product.quantity ? product?.price * product?.quantity : 0) - product.paid).toLocaleString()}</span>
+                                            </TableCell>
                                             <TableCell>{product.size}</TableCell>
                                             <TableCell>{product.quantity}</TableCell>
                                             <TableCell>
@@ -275,11 +282,24 @@ const page = () => {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Mahsulot qo'shish</DialogTitle>
+                    <h1 className='text-red-500'>{error}</h1>
                 </DialogHeader>
-                <div className='p-4'>
-                    <p>{selectedProduct?.product} - {selectedProduct?.size}</p>
+                <div className='px-4 py-1'>
+                    <p>{selectedProduct?.product} - {selectedProduct?.size} ({selectedProduct?.price.toLocaleString()}so'm)</p>
                     <p>Mavjud: {selectedProduct?.stock} dona</p>
-                    <Input type='number' min='1' max={selectedProduct?.stock} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
+                    <Label>Sotib olingan miqdor</Label>
+                    <Input type='number' min='1' max={selectedProduct?.stock} value={quantity } onChange={(e) => setQuantity(Number(e.target.value))} />
+                </div>
+                <div className='px-4 '>
+                    <p>Narxi: {(selectedProduct?.price ? selectedProduct.price * quantity : 0).toLocaleString()} so'm</p>
+                    <Label>To'langan summa</Label>
+                    <Input
+                        type="number"
+                        min="1"
+                        max={selectedProduct?.price ? selectedProduct.price * quantity : 0}
+                        value={paid}
+                        onChange={(e) => setPaid(Number(e.target.value))}
+                        />
                 </div>
                 <DialogFooter className='flex flex-col gap-1'>
                     <Button onClick={() => setOpenDialog(false)} variant={'destructive'}>Bekor qilish</Button>
