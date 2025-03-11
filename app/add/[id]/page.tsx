@@ -2,7 +2,7 @@
 import Header from '@/components/models/header'
 import Menu from '@/components/models/menu'
 import { Fetch } from '@/middlewares/Fetch'
-import { Partner, Product } from '@/types/interface'
+import { Partner, Product,History } from '@/types/interface'
 import { useParams, useRouter } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 import {
@@ -17,7 +17,7 @@ import {
   } from "@/components/ui/table"
 import { useDispatch, useSelector } from 'react-redux'
 import { Button } from '@/components/ui/button'
-import { LoaderCircle, PackagePlus, PlusCircle, RefreshCcw, ShieldAlert, TableOfContents, Trash } from 'lucide-react'
+import { CircleDollarSign, LoaderCircle, PackagePlus, PlusCircle, RefreshCcw, ShieldAlert, TableOfContents, Trash } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { getError, getPending, getUserInfo } from '@/toolkits/user-toolkit'
@@ -38,7 +38,11 @@ const page = () => {
     const dispatch = useDispatch();
     const [deleteProductId, setDeleteProductId] = useState<string | null>(null)
     const { data,isError,isAuth } = useSelector((state: any) => state.user) || {};
-      
+    const [creditMenu, setCreditMenu ] = useState<boolean>(false)
+    const [paidCredit, setPaidCredit ] =useState<number>(0)
+    const [message, setMessage ]= useState<string>("")
+    const [selectedHistory, setSelectedHistory] = useState<History | null>(null);
+
   useEffect(() => {
     if (!isAuth) {
       router.push("/auth") 
@@ -46,6 +50,16 @@ const page = () => {
   }, [router, isAuth])
   
 
+  useEffect(() => {
+    if (selectedHistory) {
+        handleCreditBacker();
+    }
+}, [selectedHistory]); 
+
+
+    const handleCreditMenu = ()=>{
+        setCreditMenu(!creditMenu)
+    }
 
     const handleMenu = ()=>{
         setMenu(!menu)
@@ -87,6 +101,53 @@ const page = () => {
         GetUserData();
     }, []);
 
+    const handleCreditChanger = async () => {
+        try {
+            setLoading(true)
+            const response = await Fetch.post("/partner/credit", {
+                id:partner?._id,
+                paid:paidCredit
+            })
+            setPaidCredit(0)
+            setMessage(response.data.message)
+            await GetPartner();
+            await GetUserData();
+        } catch (error:any) {
+            setError(error.response.data.message)
+            setMessage(error.response.data.message)
+            console.log(error);
+        }finally{
+            GetPartner(),
+            setLoading(false)
+        }
+    }
+    
+    const handleCreditBacker = async () => {
+        if (!selectedHistory) {
+            setError("Tarixdan biror to‘lovni tanlang");
+            return;
+        }
+    
+        try {
+            setLoading(true);
+            const response = await Fetch.post("/partner/backer", {
+                id: partner?._id,
+                paid: selectedHistory.paid,
+                selectedId: selectedHistory._id
+            });
+    
+            setMessage(response.data.message);
+            await GetPartner();
+            await GetUserData();
+        } catch (error: any) {
+            setError(error?.response?.data?.message || "Xatolik yuz berdi");
+            setMessage(error?.response?.data?.message || "Xatolik yuz berdi");
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+
     const handleConfirm = async () => {
         if (!selectedProduct) return;
         setLoading(true)
@@ -102,10 +163,10 @@ const page = () => {
             });
             setOpenDialog(false);
             setMenu(true);
-            GetPartner(); 
-            GetUserData();
+            await GetPartner();
+            await GetUserData();
         } catch (error : any) {
-            setError(error.message);
+            setError(error.response.data.message);
             console.log(error);
         }finally{
             setLoading(false)
@@ -133,14 +194,15 @@ const page = () => {
                 productId: deleteProductId,
             });
             setDeleteProductId(null)
-            GetUserData()
-            GetPartner()
+            await GetPartner();
+            await GetUserData();
         } catch (error: any) {
             setError(error.message)
         }finally{
             setLoading(false)
         }
     }
+    
     const ifError = error ? true : false
     return (
     <div>
@@ -161,12 +223,26 @@ const page = () => {
                         <h1>{partner?.shopName}</h1>
                         <h1>{partner?.phoneNumber}</h1>
                         </div>
-                        <Button
+                       <div className=' flex items-center gap-2 '>
+                        <Button 
+                        disabled={ifError}
+                        onClick={handleCreditMenu}
+                        variant={'ghost'}
+                        className='text-red-500'
+                        >
+                        {partner?.credit && partner.credit > 0 ? (
+                            <span className="text-red-500">-{(partner.credit ?? 0).toLocaleString()} so'm</span>
+                            ) : (
+                            <span className="text-green-500">{(partner?.credit ?? 0).toLocaleString()} so'm</span>
+                            )}
+                        </Button>
+                       <Button
                         onClick={handleMenu}
                         disabled={ifError}
                         className='text-secondary-foreground'>
                             <PackagePlus />
                         </Button>
+                       </div>
                     </div>
                     <div className='py-2'>
                     <Table>
@@ -307,6 +383,70 @@ const page = () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        {creditMenu && (
+  <div className="absolute bg-background p-5 w-screen h-screen top-0 left-0">
+    <div className="bg-secondary p-2">
+      <div className="flex items-center justify-between">
+        <Button onClick={handleCreditMenu}>Yopish</Button>
+        <h1 className="flex flex-col">
+          <span>{partner?.shopName}</span>
+          {partner?.credit && partner.credit > 0 ? (
+            <span className="text-red-500">-{(partner.credit ?? 0).toLocaleString()} so'm</span>
+            ) : (
+            <span className="text-green-500">{(partner?.credit ?? 0).toLocaleString()} so'm</span>
+            )}
+        </h1>
+      </div>
+      {message && <h1 className='text-center text-primary'>
+        {message}
+        </h1>}
+      <div className="flex justify-between mt-2">
+        <Input
+          onChange={(e) => setPaidCredit(Number(e.target.value))}
+          className="border border-primary"
+          value={paidCredit}
+        />
+        <Button 
+        disabled={paidCredit ===0 || loading} onClick={handleCreditChanger}>
+          <CircleDollarSign />
+        </Button>
+      </div>
+      <div className="mt-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>#</TableHead>
+              <TableHead>Sana</TableHead>
+              <TableHead>Jami</TableHead>
+              <TableHead>To‘langan</TableHead>
+              <TableHead>Harakat</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+    {[...(partner?.history || [])].reverse().map((item: History, index) => (
+            <TableRow key={index} className="text-center">
+                <TableCell>{index + 1}</TableCell>
+                <TableCell>{item?.date?.slice(0, 10)}</TableCell>
+                <TableCell>{(item.total + item.paid).toLocaleString()}</TableCell>
+                <TableCell>{item.paid.toLocaleString()}</TableCell>
+                <TableCell>
+                <Button
+                disabled={loading}
+                variant="destructive"
+                onClick={() => setSelectedHistory(item)} 
+            >
+                <Trash />
+            </Button>
+                </TableCell>
+            </TableRow>
+        ))}
+    </TableBody>
+        </Table>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }

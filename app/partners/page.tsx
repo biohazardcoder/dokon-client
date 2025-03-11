@@ -55,7 +55,7 @@ const Page = () => {
             </div>
             <div className="p-2 flex flex-col gap-2">
                 {filteredPartner.length > 0 ? (
-                    filteredPartner.map(({_id, address, updatedAt, shopName, phoneNumber}: Partner) => (
+                    filteredPartner.map(({_id, address, updatedAt, shopName, phoneNumber,credit}: Partner) => (
                         <div 
                             key={_id} 
                             className={`p-2 rounded-md bg-secondary`}
@@ -67,12 +67,19 @@ const Page = () => {
                                     <h1 className='text-sm'>{address}</h1>
                                 </div>
                                 <div>
-                                <Button
+                               <div>
+                               {credit && credit > 0 ? (
+                                <span className="text-red-500">-{(credit ?? 0).toLocaleString()} so'm</span>
+                                ) : (
+                                <span className="text-green-500">{(credit ?? 0).toLocaleString()} so'm</span>
+                                )}
+                               <Button
                                     onClick={() => handleUpdateAtChanger(_id)}
                                     disabled={loading}
                                 >
                                     <Eye />
                                 </Button>
+                               </div>
                                 </div>
                             </div>
                             <h1 className='flex items-center text-muted-foreground justify-between'>

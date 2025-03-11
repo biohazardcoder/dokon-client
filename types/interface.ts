@@ -30,8 +30,15 @@ export interface Partner {
         _id:string,
         createdAt:string,
         updatedAt:string,
-        
+        credit:number
+        history:[History]
 }
+export interface History {
+        date?:string,
+        total:number,
+        paid:number
+        _id?:string
+} 
 export interface PartnerProduct{
         admin:string
         date:string
