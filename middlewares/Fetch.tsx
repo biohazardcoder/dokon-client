@@ -7,7 +7,7 @@ if (typeof window !== "undefined") {
 }
 
 export const Fetch = axios.create({
-  baseURL: "http://server.s-market.uz/",
+  baseURL: "https://server.s-market.uz/",
   headers: {
     Authorization: token,
   },
