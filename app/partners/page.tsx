@@ -4,6 +4,7 @@ import Menu from '@/components/models/menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Fetch } from '@/middlewares/Fetch';
+import { RootState } from '@/store';
 import { Partner } from '@/types/interface';
 import { Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -11,14 +12,14 @@ import React, { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux';
 
 const Page = () => {
-    const { isAuth, data } = useSelector((state: any) => state.user);
+    const { isAuth, data } = useSelector((state: RootState) => state.user);
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [error, setError] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(false);
 
     const filteredPartner = data?.partners
-        ? data.partners.filter((item: any) => 
+        ? data.partners.filter((item: Partner) => 
             item.shopName.toLowerCase().includes(searchQuery.toLowerCase())
         )
         : [];
@@ -34,13 +35,16 @@ const Page = () => {
             setLoading(true);
             await Fetch.post(`/partner/changer/${partnerId}`);
             router.replace(`/add/${partnerId}`);
-        } catch (error: any) {
-            setError(error.message);
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                setError(error.message);
+            } else {
+                setError("Noma'lum xatolik yuz berdi");
+            }
         } finally {
             setLoading(false);
         }
     };
-    
 
     return (
         <div>
@@ -69,9 +73,9 @@ const Page = () => {
                                 <div>
                                <div>
                                {credit && credit > 0 ? (
-                                <span className="text-red-500">-{(credit ?? 0).toLocaleString()} so'm</span>
+                                    <span className="text-red-500">-{(credit ?? 0).toLocaleString()} sum</span>
                                 ) : (
-                                <span className="text-green-500">{(credit ?? 0).toLocaleString()} so'm</span>
+                                    <span className="text-green-500">{(credit ?? 0).toLocaleString()} sum</span>
                                 )}
                                <Button
                                     onClick={() => handleUpdateAtChanger(_id)}

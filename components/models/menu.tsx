@@ -1,5 +1,5 @@
 import React from 'react'
-import { LayoutGrid, Plus, Settings, User } from 'lucide-react'
+import { LayoutGrid, Plus, User } from 'lucide-react'
 import Link from 'next/link'
 
 const Menu = () => {
@@ -24,7 +24,7 @@ const Menu = () => {
         {
           liData.map((item:{
               link:string,
-              icon:any
+              icon: React.ReactNode;
             }, index:number)=>(
               <Link href={item.link} key={index} className='px-3 py-1'>
                 {item.icon}

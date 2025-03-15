@@ -13,46 +13,62 @@ import { useEffect, useState } from "react";
 import { Fetch } from "@/middlewares/Fetch";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
+import { RootState } from "@/store";
+import { AxiosError } from "axios";
 
 const Page = () => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const { isAuth } = useSelector((state: any) => state.user) || {};
-  const router = useRouter()
-
+  const [error, setError] = useState<string | null>(null);
+  const { isAuth, } = useSelector((state: RootState) => state.user) || {};
+  
+  const router = useRouter();
+  
   useEffect(() => {
     if (isAuth) {
-      router.push("/") 
+      router.push("/");
     }
-  }, [router, isAuth])
+  }, [router, isAuth]);
 
-  const handleLogin = async (e: any) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    setError("");
-
+    setError(null);
+  
     try {
       const { data } = await Fetch.post("admin/login", {
         password,
-        phoneNumber: +phone, 
+        phoneNumber: +phone,
       });
-      localStorage.setItem("token", data.token); 
-      window.location.href = "/"
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Noma'lum xatolik yuz berdi");
+      localStorage.setItem("token", data.token);
+      
+      window.location.href = "./";
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        const errorMessage =
+          typeof err.response?.data === "string"
+            ? err.response.data
+            : JSON.stringify(err.response?.data ?? "Noma'lum xatolik yuz berdi");
+        setError(errorMessage);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Noma'lum xatolik yuz berdi");
+      }
     } finally {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <div className="p-4 w-full h-screen flex items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-xl font-semibold">Tizimga kirish</CardTitle>
-          <CardDescription>Telefon raqamingiz va parolingizni kiriting</CardDescription>
+          <CardDescription>
+            Telefon raqamingiz va parolingizni kiriting
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -76,7 +92,7 @@ const Page = () => {
                 placeholder="********"
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-500 text-sm">{typeof error === "string" ? error : "Xatolik yuz berdi"}</p>}
             <Button className="w-full" disabled={isLoading} type="submit">
               {isLoading ? "Kirilmoqda..." : "Kirish"}
             </Button>

@@ -4,7 +4,7 @@ import Menu from '@/components/models/menu'
 import { Fetch } from '@/middlewares/Fetch'
 import { Partner, Product,History } from '@/types/interface'
 import { useParams, useRouter } from 'next/navigation'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
     Table,
     TableBody,
@@ -14,7 +14,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-  } from "@/components/ui/table"
+} from "@/components/ui/table"
+import axios, { AxiosError } from 'axios';
 import { useDispatch, useSelector } from 'react-redux'
 import { Button } from '@/components/ui/button'
 import { CircleDollarSign, LoaderCircle, PackagePlus, PlusCircle, RefreshCcw, ShieldAlert, TableOfContents, Trash } from 'lucide-react'
@@ -23,8 +24,9 @@ import { Input } from '@/components/ui/input'
 import { getError, getPending, getUserInfo } from '@/toolkits/user-toolkit'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
+import { RootState } from '@/store'
 
-const page = () => {
+const Page = () => {
     const {id}=useParams()
     const router = useRouter()
     const [loading, setLoading] = useState<boolean>(false)
@@ -37,12 +39,12 @@ const page = () => {
     const [paid, setPaid] = useState<number>(0);
     const dispatch = useDispatch();
     const [deleteProductId, setDeleteProductId] = useState<string | null>(null)
-    const { data,isError,isAuth } = useSelector((state: any) => state.user) || {};
+    const { data,isAuth } = useSelector((state: RootState) => state.user) || null;
     const [creditMenu, setCreditMenu ] = useState<boolean>(false)
     const [paidCredit, setPaidCredit ] =useState<number>(0)
     const [message, setMessage ]= useState<string>("")
     const [selectedHistory, setSelectedHistory] = useState<History | null>(null);
-
+    
   useEffect(() => {
     if (!isAuth) {
       router.push("/auth") 
@@ -50,11 +52,6 @@ const page = () => {
   }, [router, isAuth])
   
 
-  useEffect(() => {
-    if (selectedHistory) {
-        handleCreditBacker();
-    }
-}, [selectedHistory]); 
 
 
     const handleCreditMenu = ()=>{
@@ -69,138 +66,181 @@ const page = () => {
         setSelectedProduct(product);
         setOpenDialog(true);
     };
-    const GetPartner = async () => {
+    const GetPartner = useCallback(async () => {
         try {
-            setLoading(true)
-            const response = await (await Fetch.get(`partner/${id}`)).data;
+            setLoading(true);
+            const response = (await Fetch.get(`partner/${id}`)).data  ;
             setPartner(response.data);
-        } catch (error: any) {
-            setError(error.message);
-        } finally{
-            setLoading(false)
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                setError(error.message);
+            } else {
+                setError('An unexpected error occurred');
+            }
+        } finally {
+            setLoading(false);
         }
-
-    };
-    const GetUserData = async () => {
+    }, [id]);
+    const GetUserData = useCallback(async () => {
         try {
             dispatch(getPending());
-            const response = (await Fetch.get(`/admin/me`)).data;
-            if (response) {
+            const response = (await Fetch.get('/admin/me')).data;
+            if (response.data) {
                 dispatch(getUserInfo(response.data));
             } else {
-                dispatch(getError("No user data available"));
+                dispatch(getError('No user data available'));
             }
-        } catch (error: any) {
-            dispatch(getError(error.response?.data || "Unknown Token"));
-            setError(error.message);
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                dispatch(getError(error.response?.data || 'Unknown Token'));
+                setError(error.message);
+            } else {
+                dispatch(getError('An unexpected error occurred'));
+                setError('An unexpected error occurred');
+            }
         }
-    };
+    }, [dispatch]);
+    
     
     useEffect(() => {
         GetPartner();
         GetUserData();
-    }, []);
+    }, [GetPartner, GetUserData]);
 
-    const handleCreditChanger = async () => {
-        try {
-            setLoading(true)
-            const response = await Fetch.post("/partner/credit", {
-                id:partner?._id,
-                paid:paidCredit
-            })
-            setPaidCredit(0)
-            setMessage(response.data.message)
-            await GetPartner();
-            await GetUserData();
-        } catch (error:any) {
-            setError(error.response.data.message)
-            setMessage(error.response.data.message)
-            console.log(error);
-        }finally{
-            GetPartner(),
-            setLoading(false)
-        }
+  const handleCreditChanger = async () => {
+  try {
+    setLoading(true);
+    const response = await Fetch.post("/partner/credit", {
+      id: partner?._id,
+      paid: paidCredit,
+    });
+    setPaidCredit(0);
+    setMessage(response.data.message);
+    await GetPartner();
+    await GetUserData();
+  } catch (error: unknown) {
+    if (error instanceof AxiosError) {
+      setError(error.response?.data?.message || "An error occurred");
+      setMessage(error.response?.data?.message || "An error occurred");
+    } else if (error instanceof Error) {
+      setError(error.message);
+      setMessage(error.message);
+    } else {
+      setError("An unexpected error occurred");
+      setMessage("An unexpected error occurred");
     }
-    
-    const handleCreditBacker = async () => {
-        if (!selectedHistory) {
-            setError("Tarixdan biror to‘lovni tanlang");
-            return;
+    console.log(error);
+  } finally {
+    await GetPartner();
+    setLoading(false);
+  }
+};
+
+const handleCreditBacker = useCallback(async () => {
+    if (!selectedHistory) {
+        setError("Tarixdan biror to‘lovni tanlang");
+        return;
+    }
+
+    try {
+        setLoading(true);
+        const response = await Fetch.post("/partner/backer", {
+            id: partner?._id,
+            paid: selectedHistory.paid,
+            selectedId: selectedHistory._id
+        });
+
+        setMessage(response.data.message);
+        await GetPartner();
+        await GetUserData();
+    } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+            setError(error.response?.data?.message || "Noma'lum xatolik yuz berdi");
+        } else if (error instanceof Error) {
+            setError(error.message);
+        } else {
+            setError("Noma'lum xatolik yuz berdi");
         }
+        console.error(error);
+    } finally {
+        setLoading(false);
+    }
+}, [selectedHistory, partner?._id, GetPartner, GetUserData]);
     
-        try {
-            setLoading(true);
-            const response = await Fetch.post("/partner/backer", {
-                id: partner?._id,
-                paid: selectedHistory.paid,
-                selectedId: selectedHistory._id
-            });
     
-            setMessage(response.data.message);
-            await GetPartner();
-            await GetUserData();
-        } catch (error: any) {
-            setError(error?.response?.data?.message || "Xatolik yuz berdi");
-            setMessage(error?.response?.data?.message || "Xatolik yuz berdi");
-        } finally {
-            setLoading(false);
+    useEffect(() => {
+        if (selectedHistory) {
+          handleCreditBacker();
         }
-    };
+      }, [selectedHistory, handleCreditBacker]);
+      
     
+
 
     const handleConfirm = async () => {
-        if (!selectedProduct) return;
-        setLoading(true)
-        try {
-            await Fetch.post(`/partner/${id}/add-product`, {
-                product: selectedProduct.product,
-                price: selectedProduct.price,
-                size: selectedProduct.size,
-                paid:paid,
-                _id: selectedProduct._id,
-                admin: data._id,
-                quantity,
-            });
-            setOpenDialog(false);
-            setMenu(true);
-            await GetPartner();
-            await GetUserData();
-        } catch (error : any) {
-            setError(error.response.data.message);
-            console.log(error);
-        }finally{
-            setLoading(false)
+      if (!selectedProduct) return;
+      setLoading(true);
+      try {
+        await Fetch.post(`/partner/${id}/add-product`, {
+          product: selectedProduct.product,
+          price: selectedProduct.price,
+          size: selectedProduct.size,
+          paid: paid,
+          _id: selectedProduct._id,
+          admin: data?._id,
+          quantity,
+        });
+        setOpenDialog(false);
+        setMenu(true);
+        await GetPartner();
+        await GetUserData();
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+          setError(error.response?.data?.message || "Noma'lum xatolik yuz berdi");
+        } else if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError("Noma'lum xatolik yuz berdi");
         }
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
     };
     
-    const today = new Date().toLocaleDateString("sv-SE"); 
-
-    const filteredProducts = data.products?.filter((product: Product) => {
-        if (!product.date) return false; 
-        const productDate = new Date(product.date).toLocaleDateString("sv-SE");
-        return productDate === today;
+    
+    const filteredProducts = data?.products?.filter((product: Product) => {
+        return product.stock > 0;
     });
     
-    const totalStock:number = partner?.products.reduce((sum:any, product:any) => sum + product.quantity, 0);
-    const totalPriceStock:number = partner?.products.reduce((sum:any, product:any) => sum + product.price * product.quantity, 0);
-    const totalPriceStockFormatted = totalPriceStock?.toLocaleString();
+    const totalStock: number = Array.isArray(partner?.products)
+    ? partner.products.reduce((sum: number, product: Product) => sum + (product.quantity ?? 0), 0)
+    : 0;
+    const totalPriceStock: number = partner?.products?.reduce(
+        (sum: number, product: Product) => sum + (product.price * (product.quantity ?? 0)),
+        0
+      ) ?? 0;
+          const totalPriceStockFormatted = totalPriceStock?.toLocaleString();
 
     const handleDeleteProductFromPartner = async () => {
         if (!deleteProductId) return
         setLoading(true)
         try {
             await Fetch.post(`partner/delete/${partner?._id}`, {
-                admin: data._id,
+                admin: data?._id,
                 productId: deleteProductId,
             });
             setDeleteProductId(null)
             await GetPartner();
             await GetUserData();
-        } catch (error: any) {
-            setError(error.message)
-        }finally{
-            setLoading(false)
-        }
+        } catch (err: unknown) {
+            if (err instanceof AxiosError) {
+              setError(err.response?.data?.message || "Noma'lum xatolik yuz berdi");
+            } else if (err instanceof Error) {
+              setError(err.message);
+            } else {
+              setError("Noma'lum xatolik yuz berdi");
+            }}
     }
     
     const ifError = error ? true : false
@@ -208,9 +248,6 @@ const page = () => {
     <div>
         <Header/>
         <div>
-        {isError ?  <h1 className="text-red-500 text-center">
-          {isError.message}
-        </h1> : ""}
             {error ? <h1 className='text-muted-foreground p-2 flex items-center justify-center gap-1'><ShieldAlert size={20}/> Xatolik: <span className='text-red-500'>{error}</span> 
             <Button onClick={()=> router.push("/user")}><RefreshCcw/></Button> 
             </h1> : ""}
@@ -231,9 +268,9 @@ const page = () => {
                         className='text-red-500'
                         >
                         {partner?.credit && partner.credit > 0 ? (
-                            <span className="text-red-500">-{(partner.credit ?? 0).toLocaleString()} so'm</span>
+                            <span className="text-red-500">-{(partner.credit ?? 0).toLocaleString()} sum</span>
                             ) : (
-                            <span className="text-green-500">{(partner?.credit ?? 0).toLocaleString()} so'm</span>
+                            <span className="text-green-500">{(partner?.credit ?? 0).toLocaleString()} sum</span>
                             )}
                         </Button>
                        <Button
@@ -246,18 +283,18 @@ const page = () => {
                     </div>
                     <div className='py-2'>
                     <Table>
-                                <TableCaption>Sotib olingan mahsulotlar ro'yxati</TableCaption>
+                                <TableCaption>Sotib olingan mahsulotlar ro`yxati</TableCaption>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Nomi</TableHead>
                                         <TableHead>Narxi</TableHead>
-                                        <TableHead>O'lchami</TableHead>
+                                        <TableHead>O`lchami</TableHead>
                                         <TableHead>Soni</TableHead>
-                                        <TableHead>O'chirish</TableHead>
+                                        <TableHead>O`chirish</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {partner?.products.map((product: Product) => (
+                                    {partner?.products?.map((product: Product) => (
                                         <TableRow key={product._id}>
                                             <TableCell className="font-medium">{product.product}</TableCell>
                                             <TableCell className='flex flex-col'>
@@ -298,7 +335,7 @@ const page = () => {
                                         <strong>{totalStock}</strong>
                                     </TableCell>
                                     <TableCell>
-                                        <strong>{totalPriceStockFormatted} so'm</strong> 
+                                        <strong>{totalPriceStockFormatted} sum</strong> 
                                    </TableCell>
                                     </TableRow>
                                 </TableFooter>
@@ -323,14 +360,14 @@ const page = () => {
                     </div>
                     <div className='py-2'>
                         <Table>
-                            <TableCaption>Bugungi mahsulotlar ro'yxati</TableCaption>
+                            <TableCaption>Bugungi mahsulotlar ro`yxati</TableCaption>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-[100px]">Nomi</TableHead>
                                     <TableHead>Narxi</TableHead>
-                                    <TableHead>O'lchami</TableHead>
+                                    <TableHead>O`lchami</TableHead>
                                     <TableHead>Soni</TableHead>
-                                    <TableHead>Qo'shish</TableHead>
+                                    <TableHead>Qo`shish</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -357,18 +394,18 @@ const page = () => {
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Mahsulot qo'shish</DialogTitle>
+                    <DialogTitle>Mahsulot qo`shish</DialogTitle>
                     <h1 className='text-red-500'>{error}</h1>
                 </DialogHeader>
                 <div className='px-4 py-1'>
-                    <p>{selectedProduct?.product} - {selectedProduct?.size} ({selectedProduct?.price.toLocaleString()}so'm)</p>
+                    <p>{selectedProduct?.product} - {selectedProduct?.size} ({selectedProduct?.price.toLocaleString()}sum)</p>
                     <p>Mavjud: {selectedProduct?.stock} dona</p>
                     <Label>Sotib olingan miqdor</Label>
                     <Input type='number' min='1' max={selectedProduct?.stock} value={quantity } onChange={(e) => setQuantity(Number(e.target.value))} />
                 </div>
                 <div className='px-4 '>
-                    <p>Narxi: {(selectedProduct?.price ? selectedProduct.price * quantity : 0).toLocaleString()} so'm</p>
-                    <Label>To'langan summa</Label>
+                    <p>Narxi: {(selectedProduct?.price ? selectedProduct.price * quantity : 0).toLocaleString()} sum</p>
+                    <Label>To`langan summa</Label>
                     <Input
                         type="number"
                         min="1"
@@ -391,9 +428,9 @@ const page = () => {
         <h1 className="flex flex-col">
           <span>{partner?.shopName}</span>
           {partner?.credit && partner.credit > 0 ? (
-            <span className="text-red-500">-{(partner.credit ?? 0).toLocaleString()} so'm</span>
+            <span className="text-red-500">-{(partner.credit ?? 0).toLocaleString()} sum</span>
             ) : (
-            <span className="text-green-500">{(partner?.credit ?? 0).toLocaleString()} so'm</span>
+            <span className="text-green-500">{(partner?.credit ?? 0).toLocaleString()} sum</span>
             )}
         </h1>
       </div>
@@ -405,6 +442,7 @@ const page = () => {
           onChange={(e) => setPaidCredit(Number(e.target.value))}
           className="border border-primary"
           value={paidCredit}
+          type='number'
         />
         <Button 
         disabled={paidCredit ===0 || loading} onClick={handleCreditChanger}>
@@ -451,4 +489,4 @@ const page = () => {
   )
 }
 
-export default page
+export default Page

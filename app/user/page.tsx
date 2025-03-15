@@ -4,8 +4,8 @@ import Menu from "@/components/models/menu";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Product, User } from "@/types/interface";
-import {  LayoutPanelLeft, LogOut } from "lucide-react";
-import React, { useEffect } from "react";
+import { LayoutPanelLeft, LogOut } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import {
   Table,
@@ -19,42 +19,57 @@ import {
 } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { RootState } from "@/store";
 
 const Page = () => {
-  const { data, isPending,isError,isAuth } = useSelector((state: any) => state.user);
-  const user: User = data || {}; 
+  const { data, isPending, isError, isAuth } = useSelector(
+    (state: RootState) => state.user
+  );
+  
+  const user: User | null = data ?? null;
+  const router = useRouter();
+  const [selectedDate, setSelectedDate] = useState(""); 
+  const [showAllProducts, setShowAllProducts] = useState(false);
 
-  const router = useRouter()
-    
-    useEffect(() => {
-      if (!isAuth) {
-        router.push("/auth") 
-      }
-    }, [router, isAuth])
-    
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedDate(e.target.value);
+  };
+  
 
-  const today = new Date().toLocaleDateString("sv-SE");
+  useEffect(() => {
+    if (!isAuth) {
+      router.push("/auth");
+    }
+  }, [router, isAuth]);
 
+  const allProducts = data?.products || [];
 
-  const filteredProducts = data?.products?.filter((product: Product) => {
-    if (!product.date) return false;
-    const productDate = new Date(product.date).toLocaleDateString("sv-SE");
-    return productDate === today;
-  }) || [];
+const filteredProducts = allProducts.filter((product: Product) => {
+  const productDate = new Date(product.date).toISOString().split("T")[0];
+  const isDateMatch = selectedDate ? productDate === selectedDate : true;
+  const isStockMatch = showAllProducts || product.stock > 0;
+  return isDateMatch && isStockMatch;
+});
+  const totalStock = filteredProducts.reduce(
+    (sum: number, product: Product) => sum + product.stock,
+    0
+  );
+  const totalPriceStock = filteredProducts.reduce(
+    (sum: number, product: Product) => sum + product.price * product.stock,
+    0
+  );
 
-  const totalStock = filteredProducts.reduce((sum:any, product:any) => sum + product.stock, 0);
-  const totalPriceStock = filteredProducts.reduce((sum:any, product:any) => sum + product.price * product.stock, 0);
+  const handleLogOut = () => {
+    localStorage.removeItem("token");
+    window.location.href = "/auth";
+  };
 
-  const handleLogOut= ()=>{
-    localStorage.removeItem("token")
-    window.location.href = "/auth"
-  }
+  const errorMessage = typeof isError === "string" ? isError : "Noma'lum xato";
+
   return (
     <div>
       <Header />
-      {isError ?  <h1 className="text-red-500 text-center">
-          {isError.message}
-        </h1> : ""}
+      {isError && <h1 className="text-red-500 text-center">{errorMessage}</h1>}
       <div className="p-2">
         {isPending ? (
           <div>
@@ -68,22 +83,45 @@ const Page = () => {
               <div className="flex items-center justify-between">
                 <h1>+998 {user?.phoneNumber || "Noma'lum"}</h1>
                 <div className="flex items-center gap-2">
-                  <Link href='/partners'>
-                    <Button  variant="default">
-                      <LayoutPanelLeft size={14} /> 
+                  <Link href="/partners">
+                    <Button variant="default">
+                      <LayoutPanelLeft size={14} />
                     </Button>
                   </Link>
-                <Button onClick={handleLogOut} variant="destructive">
-                 <LogOut size={14} /> 
-                </Button>
+                  <Button onClick={handleLogOut} variant="destructive">
+                    <LogOut size={14} />
+                  </Button>
                 </div>
               </div>
             </div>
 
+            <div className="mt-4 flex items-center gap-4">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={handleDateChange}
+              className="border rounded-md p-2"
+            />
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="showAll" className="text-xs">
+                Barchasini ko`rsatish
+              </label>
+              <input
+                type="checkbox"
+                id="showAll"
+                checked={showAllProducts}
+                onChange={() => setShowAllProducts(!showAllProducts)}
+                className="w-6 h-6"
+              />
+            </div>
+          </div>
             <div className="mt-4">
               <Table>
                 <TableCaption>
-                  {filteredProducts.length > 0 ? "Bugungi mahsulotlar ro‘yxati" : "Hali mahsulotlar yo‘q"}
+                  {filteredProducts.length > 0
+                    ? "Bugungi mahsulotlar ro‘yxati"
+                    : "Hali mahsulotlar yo‘q"}
                 </TableCaption>
                 <TableHeader>
                   <TableRow>
@@ -96,16 +134,20 @@ const Page = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map(({ price, product, size, stock }: Product, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>{product}</TableCell>
-                      <TableCell>{price.toLocaleString("uz-UZ")}</TableCell>
-                      <TableCell>{size}</TableCell>
-                      <TableCell>{stock}</TableCell>
-                      <TableCell>{(price * stock).toLocaleString("uz-UZ")}</TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredProducts.map(
+                    ({ price, product, size, stock }: Product, index: number) => (
+                      <TableRow key={index}>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>{product}</TableCell>
+                        <TableCell>{price.toLocaleString("uz-UZ")}</TableCell>
+                        <TableCell>{size}</TableCell>
+                        <TableCell>{stock}</TableCell>
+                        <TableCell>
+                          {(price * stock).toLocaleString("uz-UZ")}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  )}
                 </TableBody>
                 <TableFooter>
                   <TableRow>

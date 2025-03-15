@@ -6,6 +6,7 @@ export interface User {
     avatar: string
     _id:string
     products:[Product]
+    partners:[Partner]
 }
 export interface Product{
         productId :string,
