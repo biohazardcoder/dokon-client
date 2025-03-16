@@ -73,9 +73,9 @@ const Page = () => {
                                 <div>
                                <div>
                                {credit && credit > 0 ? (
-                                    <span className="text-red-500">-{(credit ?? 0).toLocaleString()} sum</span>
+                                    <span className="text-red-500 pr-2">-{(credit ?? 0).toLocaleString()} sum</span>
                                 ) : (
-                                    <span className="text-green-500">{(credit ?? 0).toLocaleString()} sum</span>
+                                    <span className="text-green-500 pr-2">{(credit ?? 0).toLocaleString()} sum</span>
                                 )}
                                <Button
                                     onClick={() => handleUpdateAtChanger(_id)}
