@@ -92,7 +92,7 @@ const Page = () => {
                 placeholder="********"
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{typeof error === "string" ? error : "Xatolik yuz berdi"}</p>}
+            {error && <p className="text-red-500 text-sm">{typeof error === "string" ? error.message : "Xatolik yuz berdi"}</p>}
             <Button className="w-full" disabled={isLoading} type="submit">
               {isLoading ? "Kirilmoqda..." : "Kirish"}
             </Button>
