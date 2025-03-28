@@ -3,7 +3,6 @@ import Header from '@/components/models/header';
 import Menu from '@/components/models/menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Fetch } from '@/middlewares/Fetch';
 import { RootState } from '@/store';
 import { Partner, Product } from '@/types/interface';
 import { Eye } from 'lucide-react';
@@ -57,7 +56,7 @@ const Page = () => {
             <div className='p-2'>
             <div className='bg-secondary p-2 flex items-center justify-between'>
                <div className='flex flex-col'>
-               <h2 className="font-semibold">Umumiy ma'lumot</h2>
+               <h2 className="font-semibold">Umumiy ma`lumot</h2>
                 <Input 
                     type="date" 
                     className="mb-2 bg-card w-40"

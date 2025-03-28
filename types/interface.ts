@@ -7,6 +7,7 @@ export interface User {
     _id:string
     products:[Product]
     partners:[Partner]
+    creadit:number
 }
 export interface Product{
         productId :string,

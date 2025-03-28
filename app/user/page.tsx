@@ -25,7 +25,6 @@ const Page = () => {
   const { data, isPending, isError, isAuth } = useSelector(
     (state: RootState) => state.user
   );
-  
   const user: User | null = data ?? null;
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(""); 
@@ -81,7 +80,12 @@ const filteredProducts = allProducts.filter((product: Product) => {
           <div>
             <div className="p-2 border rounded-md">
               <div className="flex items-center justify-between">
-                <h1>+998 {user?.phoneNumber || "Noma'lum"}</h1>
+                <div>
+                <h1>+998 {user?.phoneNumber || "Noma'lum"}  </h1>
+                <h1 className="text-sm">
+                 Siznig qarzingiz: {user?.creadit.toLocaleString()}
+                </h1>
+                </div>
                 <div className="flex items-center gap-2">
                   <Link href="/partners">
                     <Button variant="default">
