@@ -25,6 +25,7 @@ import { getError, getPending, getUserInfo } from '@/toolkits/user-toolkit'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import { RootState } from '@/store'
+import { format } from "date-fns";
 
 const Page = () => {
     const {id}=useParams()
@@ -51,7 +52,21 @@ const Page = () => {
     }
   }, [router, isAuth])
   
-
+  const handleUpdateAtChanger = async (partnerId: string) => {
+    try {
+        setLoading(true);
+        await Fetch.post(`/partner/changer/${partnerId}`);
+        router.replace(`/add/${partnerId}`);
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            setError(error.message);
+        } else {
+            setError("Noma'lum xatolik yuz berdi");
+        }
+    } finally {
+        setLoading(false);
+    }
+};
 
 
     const handleCreditMenu = ()=>{
@@ -114,6 +129,7 @@ const Page = () => {
       id: partner?._id,
       paid: paidCredit,
     });
+    handleUpdateAtChanger(partner?._id || "")
     setPaidCredit(0);
     setMessage(response.data.message);
     await GetPartner();
@@ -149,7 +165,7 @@ const handleCreditBacker = useCallback(async () => {
             paid: selectedHistory.paid,
             selectedId: selectedHistory._id
         });
-
+        handleUpdateAtChanger(partner?._id || "")
         setMessage(response.data.message);
         await GetPartner();
         await GetUserData();
@@ -190,6 +206,7 @@ const handleCreditBacker = useCallback(async () => {
           admin: data?._id,
           quantity,
         });
+        handleUpdateAtChanger(partner?._id || "")
         setOpenDialog(false);
         setMenu(true);
         await GetPartner();
@@ -230,6 +247,7 @@ const handleCreditBacker = useCallback(async () => {
                 admin: data?._id,
                 productId: deleteProductId,
             });
+            handleUpdateAtChanger(partner?._id || "")
             setDeleteProductId(null)
             await GetPartner();
             await GetUserData();
@@ -282,64 +300,76 @@ const handleCreditBacker = useCallback(async () => {
                        </div>
                     </div>
                     <div className='py-2'>
-                    <Table>
-                                <TableCaption>Sotib olingan mahsulotlar ro`yxati</TableCaption>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Nomi</TableHead>
-                                        <TableHead>Narxi</TableHead>
-                                        <TableHead>O`lchami</TableHead>
-                                        <TableHead>Soni</TableHead>
-                                        <TableHead>O`chirish</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {partner?.products?.map((product: Product) => (
-                                        <TableRow key={product._id}>
-                                            <TableCell className="font-medium">{product.product}</TableCell>
-                                            <TableCell className='flex flex-col'>
-                                            <span>{(product?.price,product.quantity ? product?.price * product?.quantity : 0).toLocaleString()}</span>
-                                            <span className='text-red-500'>-{((product?.price,product.quantity ? product?.price * product?.quantity : 0) - product.paid).toLocaleString()}</span>
-                                            </TableCell>
-                                            <TableCell>{product.size}</TableCell>
-                                            <TableCell>{product.quantity}</TableCell>
-                                            <TableCell>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="destructive" onClick={() => setDeleteProductId(product._id)}>
-                                                            <Trash />
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Haqiqatan ham o‘chirmoqchimisiz?</AlertDialogTitle>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
-                                                            <AlertDialogAction  disabled={loading} onClick={handleDeleteProductFromPartner}>
-                                                                Ha, o‘chirish
-                                                            </AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                               <TableFooter>
-                                    <TableRow>
-                                    <TableCell colSpan={3}>
-                                        <strong>Jami</strong>
-                                    </TableCell>
-                                    <TableCell>
-                                        <strong>{totalStock}</strong>
-                                    </TableCell>
-                                    <TableCell>
-                                        <strong>{totalPriceStockFormatted} sum</strong> 
-                                   </TableCell>
-                                    </TableRow>
-                                </TableFooter>
-                            </Table>
+
+<Table>
+    <TableCaption>Sotib olingan mahsulotlar ro‘yxati</TableCaption>
+    <TableHeader>
+        <TableRow>
+            <TableHead>Nomi</TableHead>
+            <TableHead>Narxi</TableHead>
+            <TableHead>O‘lchami</TableHead>
+            <TableHead>Soni</TableHead>
+            <TableHead>O‘chirish</TableHead>
+        </TableRow>
+    </TableHeader>
+    <TableBody>
+    {partner?.products?.map((product: Product) => {
+        const productDate = product.date?.slice(0, 10) || ""; 
+        const today = format(new Date(), "yyyy-MM-dd");
+        
+        return (
+            <TableRow key={product._id}>
+                <TableCell className="font-medium">{product.product} ({productDate})</TableCell>
+                <TableCell className='flex flex-col'>
+                    <span>{((product?.price || 0) * (product?.quantity || 0)).toLocaleString()}</span>
+                    <span className='text-red-500'>
+                        -{(((product?.price || 0) * (product?.quantity || 0)) - (product?.paid || 0)).toLocaleString()}
+                    </span>
+                </TableCell>
+                <TableCell>{product.size}</TableCell>
+                <TableCell>{product.quantity ?? 0}</TableCell>
+                <TableCell>
+                    {productDate === today && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" onClick={() => setDeleteProductId(product._id)}>
+                                    <Trash />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Haqiqatan ham o‘chirmoqchimisiz?</AlertDialogTitle>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
+                                    <AlertDialogAction disabled={loading} onClick={handleDeleteProductFromPartner}>
+                                        Ha, o‘chirish
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </TableCell>
+            </TableRow>
+        );
+    })}
+</TableBody>
+
+    <TableFooter>
+        <TableRow>
+            <TableCell colSpan={3}>
+                <strong>Jami</strong>
+            </TableCell>
+            <TableCell>
+                <strong>{totalStock}</strong>
+            </TableCell>
+            <TableCell>
+                <strong>{totalPriceStockFormatted} sum</strong> 
+            </TableCell>
+        </TableRow>
+    </TableFooter>
+</Table>
+
                     </div>
                     </div>
                  }

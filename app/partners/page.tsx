@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Fetch } from '@/middlewares/Fetch';
 import { RootState } from '@/store';
-import { Partner } from '@/types/interface';
+import { Partner, Product } from '@/types/interface';
 import { Eye } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux';
@@ -15,9 +16,21 @@ const Page = () => {
     const { isAuth, data } = useSelector((state: RootState) => state.user);
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState<string>("");
-    const [error, setError] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(false);
-
+    const [selectedDate, setSelectedDate] = useState<string>("");
+    
+    const filteredPartners = data?.partners?.filter((partner: Partner) =>
+        selectedDate
+            ? partner.products?.some((product: Product) => product.date?.slice(0, 10) === selectedDate)
+            : true
+    ) || [];
+    
+    
+    const totalCredit = filteredPartners.reduce((acc, partner) => acc + (partner.credit || 0), 0);
+    const totalSum = filteredPartners.reduce((total, partner) => 
+        total + (partner.products?.reduce((sum, product:Product) => sum + ((product.price || 0) * (product.quantity || 0)), 0) || 0), 0
+    );
+    const totalDifference = totalSum - totalCredit;
+    
     const filteredPartner = data?.partners
         ? data.partners.filter((item: Partner) => 
             item.shopName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -30,21 +43,6 @@ const Page = () => {
         }
     }, [isAuth, router]);
 
-    const handleUpdateAtChanger = async (partnerId: string) => {
-        try {
-            setLoading(true);
-            await Fetch.post(`/partner/changer/${partnerId}`);
-            router.replace(`/add/${partnerId}`);
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                setError(error.message);
-            } else {
-                setError("Noma'lum xatolik yuz berdi");
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
 
     return (
         <div>
@@ -55,7 +53,24 @@ const Page = () => {
                     onChange={(e) => setSearchQuery(e.target.value)} 
                     placeholder="Do'konni qidirish..."
                 />
-                    {error && <p className="text-red-500 text-sm">{error}</p>}
+            </div>
+            <div className='p-2'>
+            <div className='bg-secondary p-2 flex items-center justify-between'>
+               <div className='flex flex-col'>
+               <h2 className="font-semibold">Umumiy ma'lumot</h2>
+                <Input 
+                    type="date" 
+                    className="mb-2 bg-card w-40"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                />
+               </div>
+                <div className='flex flex-col'>
+                <p>Jami: <span className="text-blue-500">{totalSum.toLocaleString()} </span></p>
+                <p>To`langan: <span className="text-green-500">{totalDifference.toLocaleString()} </span></p>
+                    <p>Qarz: <span className="text-red-500">{totalCredit.toLocaleString()} </span></p>
+                </div>
+                </div>
             </div>
             <div className="p-2 flex flex-col gap-2">
                 {filteredPartner.length > 0 ? (
@@ -77,12 +92,12 @@ const Page = () => {
                                 ) : (
                                     <span className="text-green-500 pr-2">{(credit ?? 0).toLocaleString()} sum</span>
                                 )}
+                               <Link href={`/add/${_id}`}>
                                <Button
-                                    onClick={() => handleUpdateAtChanger(_id)}
-                                    disabled={loading}
                                 >
                                     <Eye />
                                 </Button>
+                               </Link>
                                </div>
                                 </div>
                             </div>
