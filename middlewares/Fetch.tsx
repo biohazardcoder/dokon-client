@@ -7,7 +7,7 @@ if (typeof window !== "undefined") {
 }
 
 export const Fetch = axios.create({
-  baseURL: "https://srv.s-market.uz/",
+  baseURL: "https://dokon-server.onrender.com/",
   headers: {
     Authorization: token,
   },

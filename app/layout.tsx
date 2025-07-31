@@ -7,7 +7,7 @@ import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import UserReducer from "../toolkits/user-toolkit";
 import PartnerReducer from "../toolkits/ProductsSlicer";
-
+import NextTopLoader from 'nextjs-toploader';
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -33,11 +33,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>S-Market.uz</title>
+        <title>S-Market</title>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <Provider store={store}>
+          <NextTopLoader showSpinner={false}  />
             {children}
             <UserAuthHandler />
           </Provider>
